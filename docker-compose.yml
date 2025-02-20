@@ -1,0 +1,10 @@
+services:
+  nutribot-api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - .:/app
+    restart: unless-stopped 

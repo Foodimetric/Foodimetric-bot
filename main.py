@@ -27,8 +27,15 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Initialize the models
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
-embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.0-flash",
+    google_api_key=os.getenv("GEMINI_API_KEY"),
+    temperature=0
+)
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/embedding-001",
+    google_api_key=os.getenv("GEMINI_API_KEY")
+)
 
 # Create a prompt template - modified for Foodimetric focus
 prompt = ChatPromptTemplate.from_messages([

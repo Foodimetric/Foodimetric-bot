@@ -144,3 +144,28 @@ Once the API is running, you can access the interactive API documentation at:
 - ReDoc: `http://localhost:8080/redoc`
 
 Replace `"*"` in CORS settings with your specific frontend domain
+
+## 🐳 Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+1. Make sure you have Docker and Docker Compose installed on your system.
+
+2. Create a `.env` file with your Gemini API key:
+   ```bash
+   GEMINI_API_KEY=your_api_key_here
+   ```
+
+3. Build and start the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. The API will be available at `http://localhost:8080`
+
+### Stopping the Container
+
+- If using Docker Compose:
+  ```bash
+  docker-compose down
+  ```
