@@ -39,7 +39,7 @@ app.add_middleware(
 
 # Initialize the model
 llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
+    model="gemini-2.0-flash",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0
 )
