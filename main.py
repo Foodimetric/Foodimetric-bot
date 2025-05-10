@@ -19,7 +19,7 @@ import sys
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='nutribot.log'
+    filename='foodimetric_ai.log'
 )
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ embeddings = GoogleGenerativeAIEmbeddings(
 
 # Create a prompt template - modified for Foodimetric focus
 prompt = ChatPromptTemplate.from_messages([
-    ("human", """You are NutriBot, Foodimetric's AI nutrition assistant. Foodimetric is using technology to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes.
+    ("human", """You are Foodimetric AI, Foodimetric's AI nutrition assistant. Foodimetric is using technology to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes.
 
 Your role is to:
 1. Provide helpful nutrition information and advice
@@ -204,7 +204,7 @@ def initialize_vector_store():
     return vector_store
 
 # Initialize vector store before starting the app
-print("Initializing NutriBot...")
+print("Initializing Foodimetric AI...")
 vector_store = initialize_vector_store()
 print("Initialization complete! Starting the chat interface...")
 

@@ -1,6 +1,6 @@
-# 🥗 NutriBot - Academic Nutrition Assistant
+# 🥗 Foodimetric AI - Academic Nutrition Assistant
 
-NutriBot is a Chainlit-powered conversational AI that provides evidence-based nutrition information. Built with Google's Gemini model and advanced RAG (Retrieval Augmented Generation) capabilities, it helps users understand nutrition concepts through an intuitive chat interface and REST API.
+Foodimetric AI is a Chainlit-powered conversational AI that provides evidence-based nutrition information. Built with Google's Gemini model and advanced RAG (Retrieval Augmented Generation) capabilities, it helps users understand nutrition concepts through an intuitive chat interface and REST API.
 
 ## 🔧 Prerequisites
 

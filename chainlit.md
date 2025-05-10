@@ -1,6 +1,6 @@
-# 🥗 Welcome to Foodimetric's NutriBot!
+# 🥗 Welcome to Foodimetric AI!
 
-Hello! I'm NutriBot, your friendly nutrition assistant from Foodimetric. We're using technology to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes.
+Hello! I'm Foodimetric AI, your friendly nutrition assistant from Foodimetric. We're using technology to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes.
 
 ## How I Can Help You 💪
 

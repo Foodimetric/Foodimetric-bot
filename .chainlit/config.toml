@@ -39,7 +39,7 @@ multi_modal = false
 
 [UI]
 # Name of the app and chatbot
-name = "NutriBot"
+name = "Foodimetric AI"
 
 # Description of the app and chatbot
 # description = "Your AI Nutrition Assistant"

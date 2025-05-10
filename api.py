@@ -14,7 +14,7 @@ from main import vector_store, prompt
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='nutribot_api.log'
+    filename='foodimetric_ai_api.log'
 )
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="NutriBot API",
+    title="Foodimetric AI API",
     description="API endpoint for Foodimetric's nutrition assistant powered by Gemini",
     version="1.0.0"
 )
@@ -84,7 +84,7 @@ async def chat_endpoint(query: Query):
 async def root():
     return {
         "status": "online",
-        "message": "NutriBot API is running"
+        "message": "Foodimetric AI API is running"
     }
 
 if __name__ == "__main__":
