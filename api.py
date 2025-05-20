@@ -31,7 +31,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://your-frontend-domain.com"],  # Replace with your frontend domain
+    allow_origins=["https://www.foodimetric.com/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,24 +51,35 @@ class Query(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(query: Query):
     try:
+        if not query.text:
+            raise HTTPException(status_code=400, detail="Query text cannot be empty")
+            
         # Create retriever
         retriever = vector_store.as_retriever()
         
         # Get relevant context
-        context = retriever.get_relevant_documents(query.text)
+        try:
+            context = retriever.get_relevant_documents(query.text)
+        except Exception as e:
+            logger.error(f"Error retrieving context: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error retrieving context from knowledge base")
         
         # Process with LLM
-        chain = (
-            prompt 
-            | llm 
-            | StrOutputParser()
-        )
-        
-        # Get response
-        response = chain.invoke({
-            "context": context,
-            "input": query.text
-        })
+        try:
+            chain = (
+                prompt 
+                | llm 
+                | StrOutputParser()
+            )
+            
+            # Get response
+            response = chain.invoke({
+                "context": context,
+                "input": query.text
+            })
+        except Exception as e:
+            logger.error(f"Error processing with LLM: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error processing query with AI model")
         
         return {
             "status": "success",
@@ -76,9 +87,12 @@ async def chat_endpoint(query: Query):
             "user_id": query.user_id
         }
         
+    except HTTPException as he:
+        # Re-raise HTTP exceptions as they're already properly formatted
+        raise he
     except Exception as e:
-        logger.error(f"Error processing query: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error in chat endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/")
 async def root():

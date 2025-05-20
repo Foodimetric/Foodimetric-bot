@@ -13,8 +13,12 @@ RUN pip install -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Create a non-root user
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Expose port 8080
 EXPOSE 8080
 
 # Command to run the FastAPI server
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"] 
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080", "--reload"] 
