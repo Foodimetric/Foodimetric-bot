@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, List
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -9,6 +9,8 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import logging
 from main import vector_store, prompt
+from datetime import datetime, timedelta
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +46,45 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 )
 
+# In-memory chat history storage with expiration
+chat_histories: Dict[str, Dict] = {}
+
+def cleanup_expired_sessions():
+    """Remove expired chat sessions"""
+    current_time = datetime.now()
+    expired_sessions = [
+        user_id for user_id, data in chat_histories.items()
+        if current_time - data['last_activity'] > timedelta(hours=24)
+    ]
+    for user_id in expired_sessions:
+        del chat_histories[user_id]
+        logger.info(f"Cleaned up expired session for user: {user_id}")
+
+def get_chat_history(user_id: str) -> List[str]:
+    """Get chat history for a user"""
+    if user_id not in chat_histories:
+        chat_histories[user_id] = {
+            'history': [],
+            'last_activity': datetime.now()
+        }
+    return chat_histories[user_id]['history']
+
+def update_chat_history(user_id: str, user_message: str, assistant_message: str):
+    """Update chat history for a user"""
+    if user_id not in chat_histories:
+        chat_histories[user_id] = {
+            'history': [],
+            'last_activity': datetime.now()
+        }
+    
+    chat_histories[user_id]['history'].append(f"User: {user_message}")
+    chat_histories[user_id]['history'].append(f"Assistant: {assistant_message}")
+    chat_histories[user_id]['last_activity'] = datetime.now()
+    
+    # Keep only last 10 messages
+    if len(chat_histories[user_id]['history']) > 10:
+        chat_histories[user_id]['history'] = chat_histories[user_id]['history'][-10:]
+
 class Query(BaseModel):
     text: str
     user_id: Optional[str] = None
@@ -53,16 +94,22 @@ async def chat_endpoint(query: Query):
     try:
         if not query.text:
             raise HTTPException(status_code=400, detail="Query text cannot be empty")
+        
+        # Cleanup expired sessions
+        cleanup_expired_sessions()
             
         # Create retriever
         retriever = vector_store.as_retriever()
         
         # Get relevant context
         try:
-            context = retriever.get_relevant_documents(query.text)
+            context = retriever.invoke(query.text)
         except Exception as e:
             logger.error(f"Error retrieving context: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving context from knowledge base")
+        
+        # Get chat history
+        chat_history = get_chat_history(query.user_id) if query.user_id else []
         
         # Process with LLM
         try:
@@ -75,8 +122,14 @@ async def chat_endpoint(query: Query):
             # Get response
             response = chain.invoke({
                 "context": context,
+                "chat_history": "\n".join(chat_history),
                 "input": query.text
             })
+            
+            # Update chat history if user_id is provided
+            if query.user_id:
+                update_chat_history(query.user_id, query.text, response)
+            
         except Exception as e:
             logger.error(f"Error processing with LLM: {str(e)}")
             raise HTTPException(status_code=500, detail="Error processing query with AI model")
@@ -93,6 +146,18 @@ async def chat_endpoint(query: Query):
     except Exception as e:
         logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.delete("/api/chat/{user_id}")
+async def clear_chat_history(user_id: str):
+    """Clear chat history for a specific user"""
+    try:
+        if user_id in chat_histories:
+            del chat_histories[user_id]
+            logger.info(f"Cleared chat history for user: {user_id}")
+        return {"status": "success", "message": "Chat history cleared"}
+    except Exception as e:
+        logger.error(f"Error clearing chat history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error clearing chat history")
 
 @app.get("/")
 async def root():
