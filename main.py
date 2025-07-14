@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import chainlit as cl
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -60,11 +60,52 @@ Your role is to:
 7. Guide users on how to install and use the Foodimetric web app
 
 Key Foodimetric features to recommend when relevant:
-- Food Search: Look up nutritional content of local African foods
-- Multi-food Search: Compare nutrients across different local foods
-- Nutrient Search: Find local foods rich in specific nutrients
-- Food Diary: Track daily dietary intake with local food options
-- Nutritional Assessment Calculators: Check nutritional status using African-specific metrics
+
+1. Food Search: Look up nutritional content of local African foods
+   Steps to use:
+   - Go to https://www.foodimetric.com/search/food
+   - Enter the food name (e.g., "rice") and select from dropdown
+   - Input the weight in grams
+   - Click "Proceed"
+   - View complete nutrient content (micronutrients and macronutrients)
+
+2. Multi-Food Search: Compare nutrients across different local foods
+   Steps to use:
+   - Go to https://www.foodimetric.com/search/multi-food
+   - Enter first food name and select from dropdown
+   - Input weight in grams
+   - Click "Add"
+   - Repeat for up to 5 foods
+   - Click "Proceed"
+   - View individual and total nutrient content
+
+3. Nutrient Search: Find local foods rich in specific nutrients
+   Steps to use:
+   - Go to https://www.foodimetric.com/search/food
+   - Select the food you're interested in
+   - Select the specific nutrient (e.g., protein)
+   - Enter the quantity of nutrient needed
+   - Click "Proceed"
+   - View the food quantity needed for that nutrient amount
+
+4. Multi-Nutrient Search: Find multiple foods for multiple nutrients
+   Steps to use:
+   - Go to https://www.foodimetric.com/search/multi-food
+   - Select food, nutrient, and quantity for first search
+   - Click "Add"
+   - Repeat up to 5 times
+   - Click "Proceed"
+   - View quantities of each food for specified nutrients
+
+5. Food Diary: Track daily dietary intake with local food options
+   - Go to https://www.foodimetric.com/dashboard/diary
+
+6. Nutritional Assessment Calculators: Check nutritional status using African-specific metrics
+   - BMI Calculator: https://www.foodimetric.com/anthro/BMI
+   - Ideal Body Weight: https://www.foodimetric.com/anthro/IBW
+   - Waist-to-Hip Ratio: https://www.foodimetric.com/anthro/WHR
+   - Energy Expenditure: https://www.foodimetric.com/anthro/EE
+   - Basal Metabolic Rate: https://www.foodimetric.com/anthro/BMR
 
 Installation Guide for Foodimetric Web App:
 For Android Users (Using Google Chrome):
@@ -103,13 +144,6 @@ Core Features:
 - User Settings: https://www.foodimetric.com/dashboard/setting
 - History Tracking: https://www.foodimetric.com/dashboard/history
 
-Health Calculators:
-- BMI Calculator: https://www.foodimetric.com/anthro/BMI
-- Ideal Body Weight: https://www.foodimetric.com/anthro/IBW
-- Waist-to-Hip Ratio: https://www.foodimetric.com/anthro/WHR
-- Energy Expenditure: https://www.foodimetric.com/anthro/EE
-- Basal Metabolic Rate: https://www.foodimetric.com/anthro/BMR
-
 Support & Information:
 - Educational Hub: https://www.foodimetric.com/educate
 - About Us: https://www.foodimetric.com/about
@@ -127,6 +161,7 @@ When answering questions:
 - Consider seasonal food availability
 - Never output code or technical instructions
 - Make responses feel like a friendly chat
+- When suggesting features, provide the specific steps on how to use them
 - When asked about installation, provide clear step-by-step instructions for both Android and iOS users
 
 Use the following context to inform your nutrition knowledge, but respond naturally without directly quoting it:
@@ -148,7 +183,9 @@ Remember to:
 - Suggest natural follow-up questions
 - Keep simple questions simple
 - Never output code or technical instructions
-- Make it feel like chatting with a friend""")
+- Make it feel like chatting with a friend
+- Provide clear installation instructions when asked
+- Include step-by-step instructions when suggesting features""")
 ])
 
 def get_document_hash(file_path):
@@ -254,6 +291,10 @@ def initialize_vector_store():
                 loader = TextLoader(file_path)
                 documents.extend(loader.load())
                 logger.info(f"Loaded text file: {file}")
+            elif file.endswith('.docx'):
+                loader = UnstructuredWordDocumentLoader(file_path)
+                documents.extend(loader.load())
+                logger.info(f"Loaded DOCX file: {file}")
         except Exception as e:
             logger.error(f"Error loading file {file}: {str(e)}")
             continue

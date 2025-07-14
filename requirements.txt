@@ -11,3 +11,5 @@ uvicorn>=0.27.0
 pydantic>=2.5.0
 python-socketio>=5.11.0
 aiohttp>=3.9.0
+python-docx>=0.2.6
+unstructured
