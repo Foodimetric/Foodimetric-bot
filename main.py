@@ -6,15 +6,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 import pickle
-from datetime import datetime
 import hashlib
 import logging
 import sys
-from typing import List, Dict
 
 # Configure logging
 logging.basicConfig(
@@ -33,12 +32,32 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0
 )
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/embedding-001",
-    google_api_key=os.getenv("GEMINI_API_KEY")
-)
 
-# Create a prompt template - modified for Foodimetric focus with conversation history
+# Initialize embeddings
+def get_embeddings():
+    """Get embeddings"""
+    try:
+        # Try Google Gemini embeddings first
+        google_embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=os.getenv("GEMINI_API_KEY")
+        )
+        # Test the embeddings with a small sample
+        google_embeddings.embed_query("test")
+        logger.info("Using Google Gemini embeddings")
+        return google_embeddings
+    except Exception as e:
+        logger.warning(f"Google Gemini embeddings failed: {str(e)}")
+        logger.info("Falling back to local HuggingFace embeddings")
+        # Fallback to local embeddings
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'}
+        )
+
+embeddings = get_embeddings()
+
+# Create a prompt template
 prompt = ChatPromptTemplate.from_messages([
     ("human", """You are Foodimetric AI, Foodimetric's friendly AI nutrition assistant/buddy focused on Nigerian and African nutrition. Your mission is to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes, with special emphasis on local foods, traditional diets, and regional health challenges.
 
@@ -310,16 +329,59 @@ def initialize_vector_store():
     logger.info(f"Split documents into {len(document_chunks)} chunks")
     
     # Create vector store
-    vector_store = FAISS.from_documents(document_chunks, embeddings)
-    
-    # Save the vector store and document hashes
     try:
-        save_vector_store(vector_store, index_path, hash_path)
-        logger.info("Vector store created and saved successfully!")
+        vector_store = FAISS.from_documents(document_chunks, embeddings)
+        logger.info("Vector store created successfully!")
+        
+        # Save the vector store and document hashes
+        try:
+            save_vector_store(vector_store, index_path, hash_path)
+            logger.info("Vector store saved successfully!")
+        except Exception as e:
+            logger.error(f"Warning: Could not save vector store: {str(e)}")
+        
+        return vector_store
+        
     except Exception as e:
-        logger.error(f"Warning: Could not save vector store: {str(e)}")
-    
-    return vector_store
+        error_msg = str(e)
+        if "quota" in error_msg.lower() or "429" in error_msg:
+            logger.error(f"Google API quota exceeded: {error_msg}")
+            print("Google API quota exceeded. Attempting to use cached embeddings...")
+            
+            # Try to load existing vector store even if it's outdated
+            if os.path.exists(index_path):
+                try:
+                    logger.info("Attempting to load existing vector store despite quota issues...")
+                    vector_store = FAISS.load_local(
+                        index_path, 
+                        embeddings,
+                        allow_dangerous_deserialization=True
+                    )
+                    logger.info("Successfully loaded existing vector store!")
+                    print("Successfully loaded cached embeddings. App will work with existing data.")
+                    return vector_store
+                except Exception as load_error:
+                    logger.error(f"Failed to load existing vector store: {str(load_error)}")
+            
+            # If all else fails, create a minimal vector store
+            logger.warning("Creating minimal vector store with sample data...")
+            print("Creating minimal vector store. Some features may be limited.")
+            
+            # Create a simple vector store with just the document texts
+            sample_docs = [Document(page_content="Nutrition information for Nigerian foods. Contact foodimetric@gmail.com for assistance.", metadata={"source": "fallback"})]
+            
+            try:
+                vector_store = FAISS.from_documents(sample_docs, embeddings)
+                logger.info("Minimal vector store created successfully!")
+                return vector_store
+            except Exception as fallback_error:
+                logger.error(f"Failed to create even minimal vector store: {str(fallback_error)}")
+                print("Unable to create vector store. Please check your API key and try again later.")
+                sys.exit(1)
+        else:
+            logger.error(f"Unexpected error creating vector store: {error_msg}")
+            print(f"Error creating vector store: {error_msg}")
+            sys.exit(1)
 
 # Initialize vector store before starting the app
 print("Initializing Foodimetric AI...")
