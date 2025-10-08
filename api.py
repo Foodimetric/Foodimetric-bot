@@ -4,25 +4,15 @@ from pydantic import BaseModel
 from typing import Optional, Dict, List
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import logging
-from main import vector_store, prompt
 from datetime import datetime, timedelta
 import json
+from modules.config import get_llm
+from modules.prompts import get_prompt_template
+from modules.vector_store import initialize_vector_store
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='foodimetric_ai_api.log'
-)
-logger = logging.getLogger(__name__)
-
-# Load environment variables
-load_dotenv()
+api_logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -40,12 +30,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the model
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    google_api_key=os.getenv("GEMINI_API_KEY"),
-    temperature=0
-)
+# Initialize the model and vector store
+llm = get_llm()
+vector_store = initialize_vector_store()
+prompt = get_prompt_template()
 
 # In-memory chat history storage with expiration
 chat_histories: Dict[str, Dict] = {}
@@ -59,7 +47,7 @@ def cleanup_expired_sessions():
     ]
     for user_id in expired_sessions:
         del chat_histories[user_id]
-        logger.info(f"Cleaned up expired session for user: {user_id}")
+        api_logger.info(f"Cleaned up expired session for user: {user_id}")
 
 def get_chat_history(user_id: str) -> List[str]:
     """Get chat history for a user"""
@@ -106,7 +94,7 @@ async def chat_endpoint(query: Query):
         try:
             context = retriever.invoke(query.text)
         except Exception as e:
-            logger.error(f"Error retrieving context: {str(e)}")
+            api_logger.error(f"Error retrieving context: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving context from knowledge base")
         
         # Get chat history
@@ -132,7 +120,7 @@ async def chat_endpoint(query: Query):
                 update_chat_history(query.user_id, query.text, response)
             
         except Exception as e:
-            logger.error(f"Error processing with LLM: {str(e)}")
+            api_logger.error(f"Error processing with LLM: {str(e)}")
             raise HTTPException(status_code=500, detail="Error processing query with AI model")
         
         return {
@@ -145,7 +133,7 @@ async def chat_endpoint(query: Query):
         # Re-raise HTTP exceptions as they're already properly formatted
         raise he
     except Exception as e:
-        logger.error(f"Unexpected error in chat endpoint: {str(e)}")
+        api_logger.error(f"Unexpected error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.delete("/api/chat/{user_id}")
@@ -154,10 +142,10 @@ async def clear_chat_history(user_id: str):
     try:
         if user_id in chat_histories:
             del chat_histories[user_id]
-            logger.info(f"Cleared chat history for user: {user_id}")
+            api_logger.info(f"Cleared chat history for user: {user_id}")
         return {"status": "success", "message": "Chat history cleared"}
     except Exception as e:
-        logger.error(f"Error clearing chat history: {str(e)}")
+        api_logger.error(f"Error clearing chat history: {str(e)}")
         raise HTTPException(status_code=500, detail="Error clearing chat history")
 
 @app.get("/")
