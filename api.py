@@ -32,7 +32,16 @@ app.add_middleware(
 
 # Initialize the model and vector store
 llm = get_llm()
-vector_store = initialize_vector_store()
+
+try:
+    vector_store = initialize_vector_store()
+    api_logger.info("Vector store initialized successfully")
+except Exception as e:
+    api_logger.error(f"Failed to initialize vector store: {str(e)}")
+    import traceback
+    api_logger.error(traceback.format_exc())
+    raise
+
 prompt = get_prompt_template()
 
 # In-memory chat history storage with expiration
@@ -93,9 +102,26 @@ async def chat_endpoint(query: Query):
         # Get relevant context
         try:
             context = retriever.invoke(query.text)
+        except AssertionError as ae:
+            api_logger.error(f"FATAL RETRIEVAL ERROR: Failed to invoke retriever.")
+            import traceback
+            api_logger.error(traceback.format_exc())
+            api_logger.error(f"Exception details: {str(ae)}")
+            api_logger.error(f"Error retrieving context: {str(ae)}")
+            
+            # This is likely an embedding dimension mismatch
+            error_msg = (
+                "Vector store embedding dimension mismatch. "
+                "The vector store was created with a different embedding model. "
+                "Please rebuild the vector store or ensure consistent embedding models."
+            )
+            api_logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
         except Exception as e:
             api_logger.error(f"Error retrieving context: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error retrieving context from knowledge base")
+            import traceback
+            api_logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Error retrieving context: {str(e)}")
         
         # Get chat history
         chat_history = get_chat_history(query.user_id) if query.user_id else []

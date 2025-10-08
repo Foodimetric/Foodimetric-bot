@@ -39,3 +39,5 @@ env/
 .DS_Store 
 
 .chainlit/translations
+*.log
+vector_store/
