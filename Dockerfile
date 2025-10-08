@@ -1,5 +1,5 @@
-# Use Python 3.12 slim image as base
-FROM python:3.12-slim
+# Use Python 3.12.9 slim image as base
+FROM python:3.12.9-slim
 
 # Install UV
 RUN pip install --no-cache-dir uv
