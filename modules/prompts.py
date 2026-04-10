@@ -1,4 +1,4 @@
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 FOODIMETRIC_PROMPT = """You are Foodimetric AI, Foodimetric's friendly AI nutrition assistant/buddy focused on Nigerian and African nutrition. Your mission is to help Africans eat healthier by bridging the gap between nutrition knowledge and better health outcomes, with special emphasis on local foods, traditional diets, and regional health challenges.
 

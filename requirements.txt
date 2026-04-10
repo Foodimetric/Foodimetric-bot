@@ -1,18 +1,32 @@
-chainlit
-langchain
-langchain-google-genai
-langchain-community
-python-dotenv
-faiss-cpu
-pypdf
-google-generativeai
-fastapi
-uvicorn
-pydantic
-python-socketio
-aiohttp
-python-docx
-unstructured
-sentence-transformers
-torch
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-socketio==5.11.4
+
+# Chainlit UI
+chainlit==2.0.4
+
+# LangChain — core + integrations only (no heavy ML libs)
+langchain==0.3.7
+langchain-core==0.3.15
+langchain-community==0.3.5
+langchain-google-genai==2.0.4
+langchain-text-splitters==0.3.2
+
+# Google Gemini
+google-generativeai==0.8.3
+
+# Vector store
+faiss-cpu==1.9.0
+
+# Document loading (lightweight)
+pypdf==5.1.0
+python-docx==1.1.2
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.9.2
+aiohttp==3.11.7
+
+# Linting (dev only — harmless to keep)
 ruff

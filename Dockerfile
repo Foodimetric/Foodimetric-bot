@@ -1,27 +1,24 @@
-# Use Python 3.12.9 slim image as base
-FROM python:3.12.9-slim
+FROM python:3.12-slim
 
-# Install UV
-RUN pip install --no-cache-dir uv
+# Keeps Python from buffering stdout/stderr
+ENV PYTHONUNBUFFERED=1
+# Disable pip cache to save disk space
+ENV PIP_NO_CACHE_DIR=1
 
-# Set working directory
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
+# Install dependencies first (better Docker layer caching)
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install dependencies using UV 
-RUN uv pip install --system -r requirements.txt
-
-# Copy the rest of the application
+# Copy application code
 COPY . .
 
-# Create a non-root user
+# Create non-root user for security
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port 8080
 EXPOSE 8080
 
-# Command to run the FastAPI server
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080", "--reload"] 
+# Single worker, no reload — safe for 512 MB / 0.1 CPU
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1", "--timeout-keep-alive", "30"]

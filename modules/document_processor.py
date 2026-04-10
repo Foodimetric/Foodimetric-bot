@@ -1,101 +1,113 @@
 import os
 import hashlib
 import pickle
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, UnstructuredWordDocumentLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import TextLoader, PyPDFLoader
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from .config import logger
 
-# Get the root directory (parent of modules folder)
+# Root and data directories
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 
+
 def get_document_hash(file_path):
-    """Calculate hash of a file to detect changes"""
-    with open(file_path, 'rb') as f:
+    """Calculate MD5 hash of a file to detect changes."""
+    with open(file_path, "rb") as f:
         return hashlib.md5(f.read()).hexdigest()
 
+
 def should_update_embeddings(hash_path):
-    """Check if documents have been modified since last embedding"""
+    """Return True if documents have changed since last embedding."""
     if not os.path.exists(hash_path):
         return True
     try:
-        with open(hash_path, 'rb') as f:
+        with open(hash_path, "rb") as f:
             stored_hashes = pickle.load(f)
-    except:
+    except Exception:
         return True
-    
-    data_dir = "data"
-    current_files = set(os.listdir(data_dir))
+
+    current_files = set(os.listdir(DATA_DIR))
     stored_files = set(stored_hashes.keys())
-    
-    # Check if files were added or removed
+
     if current_files != stored_files:
         return True
-    
-    # Check if any files were modified
+
     for file in current_files:
-        file_path = os.path.join(data_dir, file)
-        current_hash = get_document_hash(file_path)
-        if file not in stored_hashes or stored_hashes[file] != current_hash:
+        file_path = os.path.join(DATA_DIR, file)
+        if stored_hashes.get(file) != get_document_hash(file_path):
             return True
-    
+
     return False
 
+
+def _load_docx(file_path):
+    """Load a .docx file using python-docx (lightweight, no unstructured needed)."""
+    try:
+        from docx import Document as DocxDocument
+        doc = DocxDocument(file_path)
+        text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        return [Document(page_content=text, metadata={"source": file_path})]
+    except Exception as e:
+        logger.error(f"Error loading DOCX {file_path}: {e}")
+        return []
+
+
 def load_documents(data_dir=None):
-    """Load and process all documents from the data directory"""
+    """Load and chunk all documents from the data directory."""
     if data_dir is None:
         data_dir = DATA_DIR
-    documents = []
+
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-        logger.error("No documents found in data directory")
+        logger.error("Data directory created but empty — add documents.")
         return None
-    
-    # Process all files in the data directory
+
+    documents = []
     for file in os.listdir(data_dir):
         file_path = os.path.join(data_dir, file)
         try:
-            if file.endswith('.pdf'):
+            if file.endswith(".pdf"):
                 loader = PyPDFLoader(file_path)
                 documents.extend(loader.load())
-                logger.info(f"Loaded PDF file: {file}")
-            elif file.endswith('.txt'):
-                loader = TextLoader(file_path)
+                logger.info(f"Loaded PDF: {file}")
+            elif file.endswith(".txt"):
+                loader = TextLoader(file_path, encoding="utf-8")
                 documents.extend(loader.load())
-                logger.info(f"Loaded text file: {file}")
-            elif file.endswith('.docx'):
-                loader = UnstructuredWordDocumentLoader(file_path)
-                documents.extend(loader.load())
-                logger.info(f"Loaded DOCX file: {file}")
+                logger.info(f"Loaded TXT: {file}")
+            elif file.endswith(".docx"):
+                docs = _load_docx(file_path)
+                documents.extend(docs)
+                logger.info(f"Loaded DOCX: {file}")
         except Exception as e:
-            logger.error(f"Error loading file {file}: {str(e)}")
+            logger.error(f"Error loading {file}: {e}")
             continue
-    
+
     if not documents:
-        logger.error("No valid documents found to process")
+        logger.error("No valid documents found.")
         return None
-    
-    # Split documents into chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    document_chunks = text_splitter.split_documents(documents)
-    logger.info(f"Split documents into {len(document_chunks)} chunks")
-    
-    return document_chunks
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunks = splitter.split_documents(documents)
+    logger.info(f"Split into {len(chunks)} chunks.")
+    return chunks
+
 
 def save_document_hashes(hash_path, data_dir=None):
-    """Save document hashes for change detection"""
+    """Persist document hashes for change detection."""
     if data_dir is None:
         data_dir = DATA_DIR
+
+    doc_hashes = {}
     if os.path.exists(hash_path):
-        with open(hash_path, 'rb') as f:
-            doc_hashes = pickle.load(f)
-    else:
-        doc_hashes = {}
-    
-    # Update hashes for current documents
+        try:
+            with open(hash_path, "rb") as f:
+                doc_hashes = pickle.load(f)
+        except Exception:
+            pass
+
     for file in os.listdir(data_dir):
-        file_path = os.path.join(data_dir, file)
-        doc_hashes[file] = get_document_hash(file_path)
-    
-    with open(hash_path, 'wb') as f:
+        doc_hashes[file] = get_document_hash(os.path.join(data_dir, file))
+
+    with open(hash_path, "wb") as f:
         pickle.dump(doc_hashes, f)
