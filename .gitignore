@@ -40,4 +40,5 @@ env/
 
 .chainlit/translations
 *.log
-vector_store/
+# vector_store/ is intentionally committed so Render loads it without API calls
+# To rebuild it, run: python3 build_vector_store.py
